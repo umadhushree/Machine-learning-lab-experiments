@@ -1,0 +1,126 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+# 1. Generate historical network traffic data
+np.random.seed(42)
+n = 200
+
+timestamps = pd.date_range(
+    start="2026-01-01",
+    periods=n,
+    freq="h"
+)
+
+traffic = (
+    1000
+    + 100 * np.sin(np.arange(n) * 2 * np.pi / 24)
+    + np.random.normal(0, 40, n)
+)
+
+# Simulate historical abnormal traffic spikes
+traffic[60:65] += 700
+traffic[120:125] += 1000
+traffic[170:175] += 800
+
+df = pd.DataFrame({
+    "timestamp": timestamps,
+    "traffic_pps": np.maximum(traffic, 0)
+}).set_index("timestamp")
+
+print("=== HISTORICAL NETWORK TRAFFIC ===")
+print(df.head())
+
+# 2. Split data into training and testing sets
+train = df["traffic_pps"].iloc[:160]
+test = df["traffic_pps"].iloc[160:]
+
+# 3. Train ARIMA forecasting model
+model = ARIMA(train, order=(2, 1, 2))
+model_fit = model.fit()
+
+# 4. Forecast network traffic
+forecast = model_fit.forecast(steps=len(test))
+
+# 5. Evaluate forecasting accuracy
+mae = mean_absolute_error(test, forecast)
+rmse = np.sqrt(mean_squared_error(test, forecast))
+
+print("\n=== ARIMA MODEL RESULTS ===")
+print(f"Mean Absolute Error (MAE): {mae:.2f} PPS")
+print(f"Root Mean Squared Error (RMSE): {rmse:.2f} PPS")
+
+# 6. Detect potential DDoS attack indicators
+results = pd.DataFrame({
+    "Actual_Traffic": test,
+    "Predicted_Traffic": forecast
+})
+
+results["Deviation"] = (
+    results["Actual_Traffic"] - results["Predicted_Traffic"]
+)
+
+threshold = 250
+
+results["Alert"] = results["Deviation"] > threshold
+
+print("\n=== TRAFFIC ANOMALY DETECTION ===")
+print(results.round(2).to_string())
+
+alerts = results[results["Alert"]]
+
+print("\n=== POTENTIAL DDOS ATTACK ALERTS ===")
+
+if not alerts.empty:
+    print(alerts.round(2).to_string())
+else:
+    print("No potential DDoS attack indicators detected.")
+
+# 7. Plot actual and predicted network traffic
+plt.figure(figsize=(12, 6))
+
+plt.plot(
+    train.index, train,
+    label="Training Traffic"
+)
+
+plt.plot(
+    test.index, test,
+    label="Actual Traffic"
+)
+
+plt.plot(
+    test.index, forecast,
+    label="ARIMA Forecast"
+)
+
+if not alerts.empty:
+    plt.scatter(
+        alerts.index,
+        alerts["Actual_Traffic"],
+        color="red",
+        s=80,
+        label="Potential DDoS Indicator"
+    )
+
+plt.title("DDoS Attack Prediction Using ARIMA")
+plt.xlabel("Timestamp")
+plt.ylabel("Network Traffic (Packets Per Second)")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# 8. Display final result
+print("\n=== FINAL RESULT ===")
+
+if not alerts.empty:
+    print(f"{len(alerts)} potential traffic anomalies detected.")
+    print("Further investigation is required to confirm DDoS attacks.")
+else:
+    print("No potential traffic anomalies detected in the test period.")
+
+print("\nNote: This demonstration uses synthetic data.")
+print("High traffic alone does not confirm a DDoS attack.")
