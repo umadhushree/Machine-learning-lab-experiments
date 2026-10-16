@@ -1,0 +1,100 @@
+# CAPTCHA Character Recognition using a CNN
+# Dataset: Synthetic digit images
+# Libraries: TensorFlow, NumPy, Matplotlib
+
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
+from tensorflow.keras import layers, models
+from sklearn.model_selection import train_test_split
+
+# 1. Generate a synthetic dataset of digit images
+# Each image contains a digit rendered using a simple pattern.
+# This is a demonstration dataset, not a real CAPTCHA dataset.
+
+IMG_SIZE = 28
+SAMPLES_PER_CLASS = 500
+NUM_CLASSES = 10
+
+X = []
+y = []
+
+for digit in range(NUM_CLASSES):
+    for _ in range(SAMPLES_PER_CLASS):
+        image = np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.float32)
+
+        # Create a reproducible, simple digit-shaped pattern.
+        # For realistic character recognition, use a labeled image dataset.
+        image[4:24, 8:20] = digit / 9.0
+
+        # Add small random noise
+        image += np.random.normal(
+            loc=0.0, scale=0.05, size=image.shape
+        ).astype(np.float32)
+
+        image = np.clip(image, 0.0, 1.0)
+
+        X.append(image)
+        y.append(digit)
+
+X = np.array(X)[..., np.newaxis]
+y = np.array(y)
+
+# 2. Split the dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+# 3. Build a CNN
+model = models.Sequential([
+    layers.Input(shape=(IMG_SIZE, IMG_SIZE, 1)),
+    layers.Conv2D(32, (3, 3), activation="relu"),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation="relu"),
+    layers.MaxPooling2D((2, 2)),
+    layers.Flatten(),
+    layers.Dense(64, activation="relu"),
+    layers.Dropout(0.3),
+    layers.Dense(NUM_CLASSES, activation="softmax")
+])
+
+# 4. Compile the model
+model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# 5. Train the model
+history = model.fit(
+    X_train, y_train,
+    epochs=5,
+    batch_size=32,
+    validation_split=0.2,
+    verbose=1
+)
+
+# 6. Evaluate the model
+loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
+
+print(f"Test Loss: {loss:.4f}")
+print(f"Test Accuracy: {accuracy:.4f}")
+
+# 7. Display a sample image and its prediction
+index = 0
+sample = X_test[index:index + 1]
+
+prediction = model.predict(sample, verbose=0)
+predicted_digit = int(np.argmax(prediction[0]))
+
+plt.imshow(X_test[index].squeeze(), cmap="gray")
+plt.title(
+    f"Actual digit: {y_test[index]} | "
+    f"Predicted digit: {predicted_digit}"
+)
+plt.axis("off")
+plt.show()
