@@ -1,0 +1,142 @@
+# Cyberattack Classification Using Random Forest Ensemble Learning
+
+# Install required libraries if needed:
+# !pip install numpy pandas matplotlib scikit-learn
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    ConfusionMatrixDisplay
+)
+
+# 1. Generate sample network traffic dataset
+np.random.seed(42)
+n = 1000
+
+df = pd.DataFrame({
+    "packet_size": np.random.randint(40, 1500, n),
+    "packets_per_second": np.random.randint(1, 2000, n),
+    "failed_connections": np.random.randint(0, 100, n),
+    "connection_duration": np.random.uniform(0.1, 60, n),
+    "bytes_transferred": np.random.randint(100, 100000, n)
+})
+
+# 2. Create sample labels
+# 0 = Normal traffic
+# 1 = Potential cyberattack
+df["label"] = (
+    (df["packets_per_second"] > 1400) |
+    (df["failed_connections"] > 75) |
+    (
+        (df["packet_size"] < 100) &
+        (df["packets_per_second"] > 1000)
+    )
+).astype(int)
+
+# Display sample data
+print("=== SAMPLE NETWORK TRAFFIC DATA ===")
+print(df.head(10).to_string(index=False))
+
+print("\nClass Distribution:")
+print(df["label"].value_counts().rename(
+    index={0: "Normal", 1: "Cyberattack"}
+))
+
+# 3. Separate features and target
+X = df.drop("label", axis=1)
+y = df["label"]
+
+# 4. Split into training and testing datasets
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+# 5. Train Random Forest ensemble classifier
+model = RandomForestClassifier(
+    n_estimators=100,
+    random_state=42,
+    class_weight="balanced"
+)
+
+model.fit(X_train, y_train)
+
+# 6. Predict cyberattack classes
+y_pred = model.predict(X_test)
+
+# 7. Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+
+print("\n=== MODEL EVALUATION ===")
+print(f"Accuracy: {accuracy * 100:.2f}%")
+
+print("\nClassification Report:")
+print(classification_report(
+    y_test,
+    y_pred,
+    labels=[0, 1],
+    target_names=["Normal Traffic", "Cyberattack"],
+    zero_division=0
+))
+
+# 8. Display confusion matrix
+cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+
+disp = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=["Normal", "Cyberattack"]
+)
+
+disp.plot(cmap="Blues")
+plt.title("Random Forest Cyberattack Classification")
+plt.tight_layout()
+plt.show()
+
+# 9. Display feature importance
+importance = pd.Series(
+    model.feature_importances_,
+    index=X.columns
+).sort_values(ascending=False)
+
+print("\n=== FEATURE IMPORTANCE ===")
+print(importance.round(4))
+
+importance.plot(kind="bar", figsize=(9, 5))
+plt.title("Feature Importance for Cyberattack Classification")
+plt.xlabel("Network Traffic Features")
+plt.ylabel("Importance")
+plt.tight_layout()
+plt.show()
+
+# 10. Predict a new network traffic sample
+new_traffic = pd.DataFrame([{
+    "packet_size": 80,
+    "packets_per_second": 1800,
+    "failed_connections": 85,
+    "connection_duration": 1.2,
+    "bytes_transferred": 90000
+}])
+
+prediction = model.predict(new_traffic)[0]
+probability = model.predict_proba(new_traffic)[0]
+
+print("\n=== NEW TRAFFIC PREDICTION ===")
+print(new_traffic.to_string(index=False))
+print(
+    "Predicted Class:",
+    "Cyberattack" if prediction == 1 else "Normal Traffic"
+)
+print(f"Normal Traffic Probability: {probability[0] * 100:.2f}%")
+print(f"Cyberattack Probability: {probability[1] * 100:.2f}%")
+
+print("\n=== FINAL RESULT ===")
+print("Random Forest ensemble learning classification completed.")
