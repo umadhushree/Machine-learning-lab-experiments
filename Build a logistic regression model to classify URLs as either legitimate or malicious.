@@ -1,0 +1,175 @@
+# Malicious URL Detection Using Logistic Regression
+
+# Install required libraries if needed:
+# !pip install pandas numpy scikit-learn matplotlib
+
+import re
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from urllib.parse import urlparse
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    ConfusionMatrixDisplay
+)
+
+# 1. Create a sample URL dataset
+data = {
+    "url": [
+        "https://www.google.com",
+        "https://www.wikipedia.org",
+        "https://www.microsoft.com",
+        "https://www.amazon.com",
+        "https://www.python.org",
+        "https://www.apple.com",
+        "https://www.github.com",
+        "https://www.openai.com",
+        "https://www.nasa.gov",
+        "https://www.bbc.com",
+        "http://secure-login-verify.example.com/account",
+        "http://192.168.1.10/login",
+        "http://free-prize-claim.example.net/win",
+        "http://account-update.example.org/verify",
+        "http://paypal-security-check.example.com/login",
+        "http://malicious-download.example.net/file.exe",
+        "http://verify-user-password.example.org/auth",
+        "http://198.51.100.25/update",
+        "http://bonus-reward-claim.example.net",
+        "http://signin-account-alert.example.org/secure"
+    ],
+    "label": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+    ]
+}
+
+df = pd.DataFrame(data)
+
+# Label: 0 = Legitimate, 1 = Malicious
+
+# 2. Extract features from URLs
+def extract_features(url):
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    path = parsed.path or ""
+
+    return [
+        len(url),
+        url.count("."),
+        url.count("-"),
+        url.count("@"),
+        url.count("?"),
+        url.count("="),
+        sum(char.isdigit() for char in url),
+        int(url.startswith("https://")),
+        len(path),
+        int(bool(re.search(r"\d+\.\d+\.\d+\.\d+", hostname))),
+        sum(word in url.lower() for word in [
+            "login", "verify", "secure", "update",
+            "password", "account", "free", "bonus",
+            "claim", "signin"
+        ])
+    ]
+
+feature_names = [
+    "url_length",
+    "dot_count",
+    "hyphen_count",
+    "at_count",
+    "question_count",
+    "equals_count",
+    "digit_count",
+    "uses_https",
+    "path_length",
+    "has_ip_address",
+    "suspicious_keyword_count"
+]
+
+X = pd.DataFrame(
+    [extract_features(url) for url in df["url"]],
+    columns=feature_names
+)
+
+y = df["label"]
+
+# 3. Split the dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.3,
+    random_state=42,
+    stratify=y
+)
+
+# 4. Train Logistic Regression model
+model = make_pipeline(
+    StandardScaler(),
+    LogisticRegression(max_iter=1000, random_state=42)
+)
+
+model.fit(X_train, y_train)
+
+# 5. Evaluate the model
+y_pred = model.predict(X_test)
+
+print("=== MODEL EVALUATION ===")
+print(f"Accuracy: {accuracy_score(y_test, y_pred) * 100:.2f}%")
+
+print("\nClassification Report:")
+print(classification_report(
+    y_test,
+    y_pred,
+    labels=[0, 1],
+    target_names=["Legitimate", "Malicious"],
+    zero_division=0
+))
+
+# 6. Display confusion matrix
+cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+
+display = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=["Legitimate", "Malicious"]
+)
+
+display.plot(cmap="Blues")
+plt.title("Malicious URL Detection")
+plt.tight_layout()
+plt.show()
+
+# 7. Predict new URLs
+new_urls = [
+    "https://www.google.com",
+    "http://secure-account-verify.example.net/login",
+    "http://192.0.2.10/password-update",
+    "https://www.wikipedia.org"
+]
+
+new_features = pd.DataFrame(
+    [extract_features(url) for url in new_urls],
+    columns=feature_names
+)
+
+predictions = model.predict(new_features)
+probabilities = model.predict_proba(new_features)
+
+print("\n=== URL CLASSIFICATION RESULTS ===")
+
+for url, prediction, probability in zip(
+    new_urls, predictions, probabilities
+):
+    result = "Malicious" if prediction == 1 else "Legitimate"
+
+    print(f"\nURL: {url}")
+    print(f"Prediction: {result}")
+    print(f"Malicious probability: {probability[1] * 100:.2f}%")
+
+print("\n=== FINAL RESULT ===")
+print("Logistic Regression URL classification completed.")
