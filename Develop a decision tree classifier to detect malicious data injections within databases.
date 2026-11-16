@@ -1,0 +1,44 @@
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Sample database input dataset
+data = {
+    'Special_Characters': [0, 0, 1, 1, 0, 1, 1, 0, 1, 0],
+    'SQL_Keywords': [0, 0, 1, 1, 0, 1, 1, 0, 1, 0],
+    'Input_Length': [10, 15, 50, 60, 12, 55, 70, 18, 65, 20],
+    'Label': [0, 0, 1, 1, 0, 1, 1, 0, 1, 0]
+}
+
+df = pd.DataFrame(data)
+
+# Separate features and labels
+X = df.drop('Label', axis=1)
+y = df['Label']
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+
+# Train Decision Tree
+model = DecisionTreeClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+# Predict results
+y_pred = model.predict(X_test)
+
+print("Accuracy:", accuracy_score(y_test, y_pred) * 100, "%")
+
+# Test new database input
+new_data = pd.DataFrame(
+    [[1, 1, 65], [0, 0, 12]],
+    columns=X.columns
+)
+
+predictions = model.predict(new_data)
+
+for i, result in enumerate(predictions):
+    status = "MALICIOUS" if result == 1 else "NORMAL"
+    print(f"Database Entry {i+1}: {status}")
