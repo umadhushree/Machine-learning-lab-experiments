@@ -1,0 +1,59 @@
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Sample WSN dataset
+data = {
+    'Timestamp': [10, 12, 15, 20, 25, 30, 35, 40, 45, 50],
+    'Source_IP': ['192.168.1.1', '192.168.1.2',
+                  '192.168.1.1', '10.0.0.5',
+                  '192.168.1.2', '10.0.0.8',
+                  '192.168.1.1', '10.0.0.5',
+                  '192.168.1.2', '10.0.0.9'],
+    'Event_Type': ['Normal', 'Normal', 'Data',
+                   'Flooding', 'Normal', 'Attack',
+                   'Normal', 'Flooding', 'Data', 'Attack'],
+    'Label': [0, 0, 0, 1, 0, 1, 0, 1, 0, 1]
+}
+
+df = pd.DataFrame(data)
+
+# Encode categorical features
+ip_encoder = LabelEncoder()
+event_encoder = LabelEncoder()
+
+df['Source_IP'] = ip_encoder.fit_transform(df['Source_IP'])
+df['Event_Type'] = event_encoder.fit_transform(df['Event_Type'])
+
+# Separate features and labels
+X = df.drop('Label', axis=1)
+y = df['Label']
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+
+# Train Decision Tree
+model = DecisionTreeClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+# Predict results
+y_pred = model.predict(X_test)
+
+print("Accuracy:", accuracy_score(y_test, y_pred) * 100, "%")
+
+# Test new network events
+new_data = pd.DataFrame({
+    'Timestamp': [55, 60],
+    'Source_IP': ip_encoder.transform(['10.0.0.5', '192.168.1.1']),
+    'Event_Type': event_encoder.transform(['Flooding', 'Normal'])
+})
+
+predictions = model.predict(new_data)
+
+for i, result in enumerate(predictions):
+    status = "MALICIOUS" if result == 1 else "NORMAL"
+    print(f"Network Event {i+1}: {status}")
